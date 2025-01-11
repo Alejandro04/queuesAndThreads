@@ -1,18 +1,33 @@
 import threading
 import queue
 import requests
+import json
+from typing import List, Tuple, Union, Dict
+
+ResultType = Tuple[str, int, Union[Dict[str, Union[int, str]], str]]
+
 
 # Define the worker function that fetches data from an API
-def api_worker(q, results):
+def api_worker(q: queue.Queue, results: List[ResultType]):
     while not q.empty():
         url = q.get()  # Get the next URL from the queue
         try:
             response = requests.get(url)
-            results.append((url, response.status_code, response.text))  # Save the result
+            data = response.json()
+            formatted_data = {
+                "userId": data["userId"],
+                "id": data["id"],
+                "title": data["title"],
+                "body": data["body"],
+            }
+            results.append(
+                (url, response.status_code, formatted_data)
+            )  # Save the result
         except Exception as e:
             results.append((url, None, str(e)))  # Save the error
         finally:
             q.task_done()  # Mark the task as done
+
 
 # List of API URLs to call
 urls = [
@@ -28,7 +43,7 @@ for url in urls:
     url_queue.put(url)
 
 # List to store results
-results = []
+results: List[ResultType] = []
 
 # Create threads
 num_threads = 4  # Number of parallel threads
@@ -42,6 +57,17 @@ for _ in range(num_threads):
 for thread in threads:
     thread.join()
 
-# Output the results
+formatted_results = []
 for result in results:
-    print(f"URL: {result[0]}, Status Code: {result[1]}, Response: {result[2][:100]}")  # Show first 100 chars
+    data_or_error = result[2]
+
+    if isinstance(data_or_error, dict):
+        formatted_results.append(
+            {"url": result[0], "status_code": result[1], "data": data_or_error}
+        )
+    else:
+        formatted_results.append(
+            {"url": result[0], "status_code": result[1], "error": data_or_error}
+        )
+
+print(json.dumps(formatted_results, indent=2))
