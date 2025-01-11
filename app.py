@@ -57,17 +57,18 @@ for _ in range(num_threads):
 for thread in threads:
     thread.join()
 
-formatted_results = []
-for result in results:
-    data_or_error = result[2]
+formatted_results: List[Dict] = []
 
-    if isinstance(data_or_error, dict):
-        formatted_results.append(
-            {"url": result[0], "status_code": result[1], "data": data_or_error}
-        )
-    else:
-        formatted_results.append(
-            {"url": result[0], "status_code": result[1], "error": data_or_error}
-        )
+for url, status_code, response_data in results:
+    result_dict = {
+        "url": url,
+        "status_code": status_code,
+    }
+
+    # Add either 'data' or 'error' key based on response type
+    key = "data" if isinstance(response_data, dict) else "error"
+    result_dict[key] = response_data
+
+    formatted_results.append(result_dict)
 
 print(json.dumps(formatted_results, indent=2))
